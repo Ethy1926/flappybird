@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MAINFRE//BREACH — a pretend hacking game</title>
+<style>
+  :root{
+    --bg:#020603;
+    --panel:#050f08;
+    --green:#39ff6a;
+    --green-dim:#1c8a3a;
+    --amber:#ffb000;
+    --red:#ff4444;
+    --cyan:#54e0d8;
+    --line:#0e3d1c;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;height:100%;
+    background:
+      radial-gradient(ellipse at 50% -10%, #0a1f0e 0%, var(--bg) 60%);
+    color:var(--green);
+    font-family: 'Consolas','Courier New', monospace;
+    overflow:hidden;
+  }
+  #crt{position:fixed;inset:0;pointer-events:none;background:repeating-linear-gradient(to bottom,rgba(0,0,0,0.0) 0px,rgba(0,0,0,0.12) 1px,rgba(0,0,0,0.0) 3px);mix-blend-mode:multiply;z-index:50}
+  #vignette{position:fixed;inset:0;pointer-events:none;box-shadow: inset 0 0 160px 40px rgba(0,0,0,0.75);z-index:51}
+  #flicker{position:fixed;inset:0;pointer-events:none;background:rgba(57,255,106,0.02);animation:flick 6s infinite;z-index:49}
+  @keyframes flick{0%,97%,100%{opacity:0}98%{opacity:1}99%{opacity:0}}
+  #wrap{position:relative;height:100%;max-width:1000px;margin:0 auto;display:flex;flex-direction:column;padding:18px 22px 14px}
+  header{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:10px;flex-shrink:0}
+  header .title{font-size:15px;letter-spacing:3px;text-shadow:0 0 6px var(--green)}
+  header .title span{color:var(--green-dim)}
+  #clock{font-size:12px;color:var(--green-dim)}
+  #statline{display:flex;gap:22px;font-size:12px;color:var(--green-dim);margin-bottom:10px;flex-wrap:wrap}
+  #statline b{color:var(--green)}
+  .barbox{display:flex;align-items:center;gap:6px}
+  .barbox .track{width:110px;height:8px;border:1px solid var(--line);position:relative;background:#031005}
+  .barbox .fill{position:absolute;left:0;top:0;bottom:0;background:var(--green);box-shadow:0 0 6px var(--green);width:0%;transition:width .3s ease}
+  .barbox.trace .fill{background:var(--red);box-shadow:0 0 6px var(--red)}
+  #main{flex:1;display:flex;gap:16px;min-height:0}
+  #left{flex:1;display:flex;flex-direction:column;min-width:0;border:1px solid var(--line);background:rgba(3,10,5,0.5);padding:10px 12px}
+  #screen{flex:1;overflow-y:auto;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word;padding-right:4px}
+  #inputRow{display:flex;align-items:center;border-top:1px solid var(--line);margin-top:8px;padding-top:8px;flex-shrink:0}
+  #cmdInput{flex:1;background:transparent;border:none;outline:none;color:#eafff0;font-family:inherit;font-size:13px;padding:4px 6px;caret-color:var(--green)}
+  #right{width:230px;flex-shrink:0;display:flex;flex-direction:column;gap:10px}
+  .panel{border:1px solid var(--line);background:rgba(3,10,5,0.5);padding:10px 12px;font-size:11.5px}
+  .panel h3{margin:0 0 8px;font-size:11px;letter-spacing:2px;color:var(--green-dim);text-transform:uppercase}
+  #missionList{list-style:none;margin:0;padding:0}
+  #missionList li{padding:4px 0;color:var(--green-dim);border-bottom:1px dashed rgba(28,138,58,0.3)}
+  #missionList li.done{color:var(--green)}
+  #missionList li.done::before{content:"[✓] "}
+  #missionList li.pending::before{content:"[ ] "}
+  #missionList li.locked{color:#2a3a2c}
+  #cmdHelp div{margin-bottom:5px;color:var(--green-dim)}
+  #cmdHelp b{color:var(--cyan)}
+  .blink{animation:bl 1s step-start infinite}@keyframes bl{50%{opacity:0}}
+  #overlayWin,#overlayLose{position:fixed;inset:0;background:rgba(0,0,0,0.88);display:none;align-items:center;justify-content:center;z-index:60;text-align:center;flex-direction:column;gap:14px}
+  #overlayWin.show,#overlayLose.show{display:flex}
+  .retryBtn{background:transparent;border:1px solid var(--green);color:var(--green);padding:10px 22px;font-family:inherit;font-size:13px;letter-spacing:2px;cursor:pointer}
+  .retryBtn:hover{background:var(--green);color:#03110a}
+  #disclaimer{text-align:center;font-size:10px;color:#1c4a2a;padding-top:6px;flex-shrink:0}
+  @media (max-width:720px){#right{display:none}}
+</style>
+</head>
+<body>
+
+<div id="wrap">
+  <header>
+    <div class="title">MAINFRAME<span>//</span>BREACH <span>v0.9-fake</span></div>
+    <div id="clock">SESSION 00:00:00</div>
+  </header>
+
+  <div id="statline">
+    <div>NODE: <b id="nodeName">relay-gamma</b></div>
+    <div class="barbox">TRACE <div class="track"><div class="fill" id="traceFill"></div></div></div>
+    <div class="barbox">PROGRESS <div class="track"><div class="fill" id="progFill"></div></div></div>
+    <div>SCORE: <b id="scoreVal">0</b></div>
+  </div>
+
+  <div id="main">
+    <div id="left">
+      <div id="screen"></div>
+      <div id="inputRow">
+        <span class="prompt">guest@relay:~$&nbsp;</span>
+        <input id="cmdInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="type 'help' to begin..." />
+      </div>
+    </div>
+
+    <div id="right">
+      <div class="panel">
+        <h3>Objectives</h3>
+        <ul id="missionList"></ul>
+      </div>
+      <div class="panel">
+        <h3>Commands</h3>
+        <div id="cmdHelp">
+          <div><b>help</b> — list commands</div>
+          <div><b>scan</b> — scan the node</div>
+          <div><b>connect</b> — connect to node</div>
+          <div><b>crack</b> — crack password</div>
+          <div><b>bypass</b> — bypass firewall</div>
+          <div><b>decrypt</b> — decrypt payload</div>
+          <div><b>exfiltrate</b> — pull the data</div>
+          <div><b>ghost</b> — cool down trace</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="disclaimer">100% fictional terminal • no real network activity • for fun only</div>
+</div>
+
+<div id="crt"></div>
+<div id="flicker"></div>
+<div id="vignette"></div>
+
+<div id="overlayWin">
+  <h1>ACCESS GRANTED</h1>
+  <p id="winText"></p>
+  <button class="retryBtn" onclick="restartGame()">RUN IT AGAIN</button>
+</div>
+<div id="overlayLose">
+  <h1>CONNECTION TERMINATED</h1>
+  <p id="loseText"></p>
+  <button class="retryBtn" onclick="restartGame()">RETRY BREACH</button>
+</div>
+
+<script>
+(function(){
+  const screen = document.getElementById('screen');
+  const input = document.getElementById('cmdInput');
+  const traceFill = document.getElementById('traceFill');
+  const progFill = document.getElementById('progFill');
+  const scoreVal = document.getElementById('scoreVal');
+  const nodeName = document.getElementById('nodeName');
+  const clock = document.getElementById('clock');
+  const missionListEl = document.getElementById('missionList');
+  const overlayWin = document.getElementById('overlayWin');
+  const overlayLose = document.getElementById('overlayLose');
+  const traceBox = traceFill.closest('.barbox');
+  traceBox.classList.add('trace');
+
+  const nodes = ["relay-gamma","satlink-09","corevault-x","obsidian-node","dmz-echo","fortress-prime"];
+
+  let state = {};
+
+  const STEPS = [
+    {id:'scan', label:'Scan the target node', cmd:'scan'},
+    {id:'connect', label:'Establish a connection', cmd:'connect'},
+    {id:'crack', label:'Crack the login password', cmd:'crack'},
+    {id:'bypass', label:'Bypass the firewall', cmd:'bypass'},
+    {id:'decrypt', label:'Decrypt the core payload', cmd:'decrypt'},
+    {id:'exfiltrate', label:'Exfiltrate the data', cmd:'exfiltrate'},
+  ];
+
+  function resetState(){
+    state = {step:0,trace:0,score:0,startTime:Date.now(),node:nodes[Math.floor(Math.random()*nodes.length)],connected:false,cracked:false,bypassed:false,decrypted:false,ended:false};
+    nodeName.textContent = state.node;
+    screen.innerHTML = '';
+    renderMissions();
+    updateBars();
+    scoreVal.textContent = 0;
+    overlayWin.classList.remove('show');
+    overlayLose.classList.remove('show');
+    print("SYSTEM", "Booting pretend intrusion shell... done.", 'sys');
+    print("SYSTEM", "This is a simulation. No real systems are involved.", 'sys');
+    print("SYSTEM", "Target acquired: " + state.node + ". Type 'help' for command list.", 'info');
+    input.disabled = false;
+    input.focus();
+  }
+
+  function renderMissions(){missionListEl.innerHTML='';STEPS.forEach((s,i)=>{const li=document.createElement('li');li.textContent=s.label;if(i<state.step)li.className='done';else if(i===state.step)li.className='pending';else li.className='locked';missionListEl.appendChild(li)})}
+  function updateBars(){const pct=Math.min(100,(state.step/STEPS.length)*100);progFill.style.width=pct+'%';traceFill.style.width=Math.min(100,state.trace)+'%';scoreVal.textContent=state.score}
+  function print(who,text,cls){const div=document.createElement('div');div.className='l-'+(cls||'out');if(who==='guest'){div.className='l-cmd';div.textContent=text}else{div.textContent=text}screen.appendChild(div);screen.scrollTop=screen.scrollHeight}
+  function randHex(len){const chars="0123456789ABCDEF";let s="";for(let i=0;i<len;i++)s+=chars[Math.floor(Math.random()*chars.length)];return s}
+  function bumpTrace(amount){state.trace=Math.max(0,Math.min(100,state.trace+amount));updateBars();if(state.trace>=100&&!state.ended)loseGame()}
+  function addScore(n){state.score+=n;updateBars()}
+  function loseGame(){state.ended=true;input.disabled=true;document.getElementById('loseText').textContent="The trace hit 100% and the pretend admins pretend-noticed you. Final score: "+state.score+".";setTimeout(()=>overlayLose.classList.add('show'),400)}
+  function winGame(){state.ended=true;input.disabled=true;const elapsed=Math.floor((Date.now()-state.startTime)/1000);document.getElementById('winText').textContent="You fake-breached "+state.node+" in "+elapsed+"s with a final score of "+state.score+". Nothing real happened, but it felt awesome.";setTimeout(()=>overlayWin.classList.add('show'),400)}
+  function currentStepId(){if(state.step>=STEPS.length)return null;return STEPS[state.step].id}
+  function advanceIfMatches(cmdId){if(currentStepId()===cmdId){state.step++;renderMissions();updateBars();if(state.step>=STEPS.length)setTimeout(winGame,900);return true}return false}
+
+  const commands={help(){print(null,"AVAILABLE COMMANDS:",'info');print(null,"  help          show this list",'sys');print(null,"  scan          scan the current node for entry points",'sys');print(null,"  connect       open a connection to the node",'sys');print(null,"  crack         crack the login password",'sys');print(null,"  bypass        bypass the firewall",'sys');print(null,"  decrypt       decrypt the core payload",'sys');print(null,"  exfiltrate    pull the data and complete the run",'sys');print(null,"  ghost         cool your trace level down",'sys');print(null,"  status        show current mission status",'sys');print(null,"  clear         clear the screen",'sys')},status(){print(null,"NODE: "+state.node,'info');print(null,"STEP: "+Math.min(state.step+1,STEPS.length)+" / "+STEPS.length,'info');print(null,"TRACE: "+Math.round(state.trace)+"%",'info');print(null,"SCORE: "+state.score,'info')},clear(){screen.innerHTML=''},scan(){print(null,"Pinging "+state.node+"...",'sys');const lines=["PORT 22    ssh       [filtered]","PORT 80    http      [open]","PORT 443   https     [open]","PORT 3306  sqlrelay  [open, weak-auth]","PORT 8080  proxy     [open]"];setTimeout(()=>{lines.forEach(l=>print(null,l,'out'));print(null,"Scan complete. Weak point identified on sqlrelay.",'info');addScore(10);advanceIfMatches('scan');bumpTrace(3)},500)},connect(){if(currentStepId()!=='connect'&&state.step<STEPS.indexOf(STEPS.find(s=>s.id==='connect'))){print(null,"Run 'scan' first to find an entry point.",'warn');bumpTrace(2);return}print(null,"Opening socket to "+state.node+":8080 ...",'sys');setTimeout(()=>{print(null,"Handshake "+randHex(8)+" ... ACK",'out');print(null,"Connection established (pretend TLS 1.9-fake).",'info');state.connected=true;addScore(10);advanceIfMatches('connect');bumpTrace(5)},600)},crack(){if(!state.connected){print(null,"No connection open. Try 'connect' first.",'warn');bumpTrace(3);return}print(null,"Loading pretend wordlist... brute-forcing login...",'sys');let tries=0;const iv=setInterval(()=>{tries++;print(null,"attempt: "+randHex(6).toLowerCase()+"_"+Math.floor(Math.random()*9999),'out');if(tries>=4){clearInterval(iv);print(null,"PASSWORD ACCEPTED: hunter2-fake",'info');state.cracked=true;addScore(15);advanceIfMatches('crack');bumpTrace(8)}},300)},bypass(){if(!state.cracked){print(null,"Nothing to bypass yet — you need valid credentials ('crack').",'warn');bumpTrace(3);return}print(null,"Rerouting through decoy relays to spoof the firewall...",'sys');setTimeout(()=>{print(null,"Firewall rule set FW-"+randHex(3)+" disabled (pretend).",'out');print(null,"You are now inside the perimeter. Trace risk increasing.",'warn');state.bypassed=true;addScore(20);advanceIfMatches('bypass');bumpTrace(12)},700)},decrypt(){if(!state.bypassed){print(null,"Firewall still active. Run 'bypass' first.",'warn');bumpTrace(3);return}print(null,"Fetching encrypted payload block...",'sys');setTimeout(()=>{print(null,"CIPHERTEXT: "+randHex(32),'out');print(null,"Running pretend-quantum key search...",'sys')},300);setTimeout(()=>{print(null,"KEY FOUND: "+randHex(16),'info');print(null,"Payload decrypted. It's just lorem ipsum, but it looks cool.",'info');state.decrypted=true;addScore(20);advanceIfMatches('decrypt');bumpTrace(10)},1300)},exfiltrate(){if(!state.decrypted){print(null,"Nothing decrypted yet to exfiltrate.",'warn');bumpTrace(3);return}print(null,"Packaging data into pretend archive...",'sys');setTimeout(()=>{print(null,"Uploading to dead-drop... [##########] 100%",'out');print(null,"EXFILTRATION COMPLETE. Ghosting connection...",'info');addScore(25);advanceIfMatches('exfiltrate')},900)},ghost(){print(null,"Scrambling your pretend IP through 7 decoy nodes...",'sys');setTimeout(()=>{const reduced=Math.min(state.trace,20+Math.floor(Math.random()*10));state.trace=Math.max(0,state.trace-reduced);updateBars();print(null,"Trace reduced by "+reduced+"%.",'info')},500)}};
+
+  const flavor={"sudo make me a sandwich"(){print(null,"Nice try. Access still requires bypassing ethics module (there is none).","warn")},"whoami"(){print(null,"You are: definitely not a real hacker, just having fun.",'info')},"rm -rf /"(){print(null,"Denied. This terminal has zero real files to destroy.",'warn');bumpTrace(5)}};
+
+  function handleCommand(raw){const cmd=raw.trim();if(!cmd)return;print('guest',cmd);if(state.ended){print(null,"Session over. Click retry to start a new run.",'sys');return}const lc=cmd.toLowerCase();if(flavor[lc]){flavor[lc]();return}if(commands[lc]){commands[lc]();return}print(null,"Unknown command: '"+cmd+"'. Type 'help' for options.",'bad');bumpTrace(2)}
+
+  input.addEventListener('keydown',(e)=>{if(e.key==='Enter'){const val=input.value;input.value='';handleCommand(val)}});
+  setInterval(()=>{if(!state.ended){bumpTrace(0.6)}},2000);
+  setInterval(()=>{if(!state.startTime)return;const s=Math.floor((Date.now()-state.startTime)/1000);const hh=String(Math.floor(s/3600)).padStart(2,'0');const mm=String(Math.floor((s%3600)/60)).padStart(2,'0');const ss=String(s%60).padStart(2,'0');clock.textContent="SESSION "+hh+":"+mm+":"+ss},1000);
+  window.restartGame=resetState;resetState();
+})();
+</script>
+
+</body>
+</html>
